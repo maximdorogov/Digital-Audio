@@ -47,7 +47,7 @@
 #include "data_table.h"
 #include <string.h>
 
-#define AUDIO_BUFFER_SIZE 64
+#define AUDIO_BUFFER_SIZE 32 //si uso 64 se escucha un plop cada tanto.
 
 #define USE_ADC  0
 #define USE_LOOKUP_TABLE_INDEX 1
@@ -88,7 +88,8 @@ uint16_t audioBufferB[2*AUDIO_BUFFER_SIZE];
 
 flag_t flag = idle;
 buffer_t  buffer_to_send;
-audio_state_t state = audio_read_state;
+buffer_t buffer_to_fill = buffer_A;
+
 
 /* USER CODE END PV */
 
@@ -129,7 +130,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
-
+DSAFDSA
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -154,7 +155,7 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  audio_buffer_init(); //lleno ambos buffers con ceros
+  //audio_buffer_init(); //lleno ambos buffers con ceros
   CS43L22_init();  //configuro el DAC
 
   HAL_ADC_Start_IT(&hadc1);
@@ -180,28 +181,30 @@ int main(void)
 	  */
 	  switch(flag){
 
-	  case idle:
-		  break;
+		  case idle:
+			  break;
 
-	  case data_ready:
+		  case data_ready:
 
-		  flag = idle;
+			  flag = idle;
 
-		  if(buffer_to_send == buffer_A){
+			  if(buffer_to_send == buffer_A){
 
-			  HAL_I2S_Transmit(&hi2s3,audioBufferA,2*AUDIO_BUFFER_SIZE,2);
-		  }
+				  HAL_I2S_Transmit(&hi2s3,audioBufferA,2*AUDIO_BUFFER_SIZE,1);
+			  }
 
-		  if(buffer_to_send == buffer_B){
+			  if(buffer_to_send == buffer_B){
 
-			  HAL_I2S_Transmit(&hi2s3,audioBufferB,2*AUDIO_BUFFER_SIZE,2);
-		  }
-		  break;
+				  HAL_I2S_Transmit(&hi2s3,audioBufferB,2*AUDIO_BUFFER_SIZE,1);
 
-	  default:
-	    break;
+			  }
+			  break;
 
+		  default:
+			  break;
 	  }
+
+	//  HAL_I2S_Transmit(&hi2s3,audioBufferA,2*AUDIO_BUFFER_SIZE,10);
 
   /* USER CODE END WHILE */
 
@@ -441,8 +444,6 @@ static void MX_GPIO_Init(void)
 
 int16_t audio_dsp(uint16_t *sample){
 
-	 state = audio_write_state;
-
 	 return  (*sample) - 2047;
 
 }
@@ -514,19 +515,38 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
   /* Prevent unused argument(s) compilation warning */
   UNUSED(hadc);
 
-  	  audioBufferA[i] = audio_read();
-  	  audioBufferA[i+1] =  audioBufferA[i];
-  	  i = i+2;
+  	  if(buffer_to_fill == buffer_A){
 
-  	  if(i >= 2*AUDIO_BUFFER_SIZE){
+		  audioBufferA[i] = audio_read();
+		  audioBufferA[i+1] =  audioBufferA[i];
+		  i = i+2;
 
-  		i=0;
-  		memcpy(audioBufferB,audioBufferA,sizeof(audioBufferA));
+		  if(i >= 2*AUDIO_BUFFER_SIZE){
 
-  		buffer_to_send = audioBufferB;
-  		flag = data_ready;
+			i=0;
+
+			buffer_to_send = buffer_A;
+			buffer_to_fill = buffer_B;
+			flag = data_ready;
+		  }
   	  }
+		  //////////////////////////////////////////////
 
+  	  if(buffer_to_fill == buffer_B){
+
+		  audioBufferB[i] = audio_read();
+		  audioBufferB[i+1] =  audioBufferB[i];
+		  i = i+2;
+
+		  if(i >= 2*AUDIO_BUFFER_SIZE){
+
+			i=0;
+
+			buffer_to_send = buffer_B;
+			buffer_to_fill = buffer_A;
+			flag = data_ready;
+		  }
+  	  }
 }
 
 void CS43L22_write(uint8_t reg, uint8_t Cmd){
