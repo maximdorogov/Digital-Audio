@@ -47,7 +47,7 @@
 #include "data_table.h"
 #include <string.h>
 
-#define AUDIO_BUFFER_SIZE 32 //si uso 64 se escucha un plop cada tanto.
+#define AUDIO_BUFFER_SIZE 90 //con 90 el plop es casi imperceptible
 
 #define USE_ADC  0
 #define USE_LOOKUP_TABLE_INDEX 1
@@ -57,19 +57,18 @@
 
 
 
-#define RUN_OPT USE_ADC//USE_LOOKUP_TABLE_COMPLEMENT_2  //aca se define de donde levanto el audio para transferir al Cirrus
-
-
+#define RUN_OPT USE_LOOKUP_TABLE_COMPLEMENT_2  //aca se define de donde levanto el audio para transferir al Cirrus
 
 
 typedef enum{left = 0,right}channel_t;
 
 typedef enum{audio_read_state = 0,audio_write_state ,audio_process_state,audio_send_state}audio_state_t;
 
-typedef enum{data_ready = 0, idle}flag_t;
+typedef enum{data_ready_to_send = 0,data_ready_to_dsp, idle}flag_t;
 
 typedef enum{buffer_A = 0,buffer_B}buffer_t;
 /* USER CODE END Includes */
+
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
@@ -130,7 +129,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
-DSAFDSA
+
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -184,19 +183,29 @@ DSAFDSA
 		  case idle:
 			  break;
 
-		  case data_ready:
+		  case data_ready_to_dsp:
 
-			  flag = idle;
+			  flag = data_ready_to_send;
 
-			  if(buffer_to_send == buffer_A){
+		  			  break;
 
-				  HAL_I2S_Transmit(&hi2s3,audioBufferA,2*AUDIO_BUFFER_SIZE,1);
-			  }
+		  case data_ready_to_send:
 
-			  if(buffer_to_send == buffer_B){
+			  if(HAL_I2S_GetState(&hi2s3) != HAL_I2S_STATE_BUSY_TX){
 
-				  HAL_I2S_Transmit(&hi2s3,audioBufferB,2*AUDIO_BUFFER_SIZE,1);
+				  flag = idle;
 
+				  if(buffer_to_send == buffer_A){
+
+					  HAL_I2S_Transmit(&hi2s3,audioBufferA,2*AUDIO_BUFFER_SIZE,10);
+
+				  }
+
+				  if(buffer_to_send == buffer_B){
+
+					  HAL_I2S_Transmit(&hi2s3,audioBufferB,2*AUDIO_BUFFER_SIZE,10);
+
+				  }
 			  }
 			  break;
 
@@ -527,7 +536,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 			buffer_to_send = buffer_A;
 			buffer_to_fill = buffer_B;
-			flag = data_ready;
+			flag = data_ready_to_dsp;
 		  }
   	  }
 		  //////////////////////////////////////////////
@@ -544,7 +553,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 			buffer_to_send = buffer_B;
 			buffer_to_fill = buffer_A;
-			flag = data_ready;
+			flag = data_ready_to_dsp;
 		  }
   	  }
 }
