@@ -47,28 +47,24 @@
 #include "data_table.h"
 #include <string.h>
 
-#define AUDIO_BUFFER_SIZE 90 //con 90 el plop es casi imperceptible
+#define AUDIO_BUFFER_SIZE 180
+//con 2*90 el plop se escucha cada tanto 90 samples por cada canal intercaladas
 
 #define USE_ADC  0
-#define USE_LOOKUP_TABLE_INDEX 1
-#define USE_LOOKUP_TABLE 2
 #define USE_LOOKUP_TABLE_COMPLEMENT_2 3
-#define USE_DATA_SAMPLE 4
 
 
+#define ADC_OFFSET 0//2048  //Si uso LOOKUP TABLE offset = 0
 
-#define RUN_OPT USE_LOOKUP_TABLE_COMPLEMENT_2  //aca se define de donde levanto el audio para transferir al Cirrus
-
-
-typedef enum{left = 0,right}channel_t;
-
-typedef enum{audio_read_state = 0,audio_write_state ,audio_process_state,audio_send_state}audio_state_t;
+#define DSP
+#define RUN_OPT 0//USE_LOOKUP_TABLE_COMPLEMENT_2 //aca se define de donde levanto el audio para transferir al Cirrus
 
 typedef enum{data_ready_to_send = 0,data_ready_to_dsp, idle}flag_t;
 
-typedef enum{buffer_A = 0,buffer_B}buffer_t;
-/* USER CODE END Includes */
+typedef enum{FALSE,TRUE}bool_t;
 
+typedef enum{buffer_A = 0,buffer_B,no_fill}buffer_t;
+/* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
@@ -82,13 +78,68 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
-uint16_t audioBufferA[2*AUDIO_BUFFER_SIZE];
-uint16_t audioBufferB[2*AUDIO_BUFFER_SIZE];
+uint16_t audioBufferA[AUDIO_BUFFER_SIZE];
+uint16_t audioBufferB[AUDIO_BUFFER_SIZE];
+
+uint16_t *audioToSend = NULL;
+uint16_t *audioToUpdate = NULL;
 
 flag_t flag = idle;
-buffer_t  buffer_to_send;
-buffer_t buffer_to_fill = buffer_A;
+uint8_t adc_done = 0;
+buffer_t  buffer_to_send = buffer_B;
+buffer_t buffer_to_fill = buffer_A;//no_fill;
+uint16_t sample;
 
+////////////////////////////echo dsp effect////////////////////////////////////////
+uint16_t dsp_echo_short(uint16_t data,size_t depth){
+
+	static uint16_t sDelayBuffer[25000];
+	static uint16_t counter = 0;
+
+	sDelayBuffer[counter] = (data + sDelayBuffer[counter])>>1;
+
+		counter ++;
+
+	if(counter >= depth){ counter = 0; }
+
+	return sDelayBuffer[counter] + data;
+
+}
+
+
+uint16_t dsp_echo(uint16_t data,size_t depth){
+
+	static uint16_t sDelayBuffer[30000];
+	static uint16_t counter = 0;
+
+	sDelayBuffer[counter] = (data + sDelayBuffer[counter])>>1;
+
+		counter ++;
+
+	if(counter >= depth){ counter = 0; }
+
+	return sDelayBuffer[counter] + data;
+
+}
+
+void dsp_overdrive(uint16_t *data,uint16_t threshold){
+
+	if(*data >= threshold){
+
+		*data =  threshold;
+
+	}
+
+	//return data;
+
+}
+
+////////////////////////////////////////////////////////////////////
+// Is the transfer complete yet?
+// 0 -> Not yet complete.
+// 1 -> complete.
+// This variable is set in the interrupt handler and manually cleared.
+volatile bool_t transferComplete = TRUE;
 
 /* USER CODE END PV */
 
@@ -104,14 +155,14 @@ static void MX_TIM2_Init(void);
 /* Private function prototypes -----------------------------------------------*/
 void CS43L22_init(void);
 
-int16_t audio_dsp(uint16_t *);
-
-
 uint16_t audio_read(void);
-void audio_send_buffer(uint16_t *,uint16_t);
-void audio_buffer_init(void);                    //inicializa el audio buffer con ceros.
+void audio_effect(uint16_t*);
+uint16_t* select_buffer_to_transmit(buffer_t);
 
-//dsp functions
+void audio_send_buffer(uint16_t *,uint16_t);
+void audio_buffer_init(void);                  //inicializa el audio buffer con ceros.
+void fill_buffers();
+void load_buffer(uint16_t *);
 
 /* USER CODE END PFP */
 
@@ -124,6 +175,8 @@ void audio_buffer_init(void);                    //inicializa el audio buffer co
   *
   * @retval None
   */
+
+
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -154,75 +207,144 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  //audio_buffer_init(); //lleno ambos buffers con ceros
   CS43L22_init();  //configuro el DAC
 
-  HAL_ADC_Start_IT(&hadc1);
   HAL_TIM_Base_Start(&htim2);
+  HAL_ADC_Start_IT(&hadc1);
+
+  audio_buffer_init(); //inicializo los buffers con ceros
+
+  audioToSend = audioBufferB;
+  audioToUpdate = audioBufferA;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
+
   while (1)
   {
-/*buffer_usaddo = 0
+	  if(transferComplete && (flag == data_ready_to_send)){
 
-		proceso
-			buffer_usado < dato adc
-			inc
-			se lleno?
-				swap buffer
+			  flag = idle;
 
-		proceso
-			envias buffer libre
+			  audioToSend = select_buffer_to_transmit(buffer_to_send); //me devuelve el puntero al buffer listo para enviar
 
-	  */
-	  switch(flag){
+			  audio_send_buffer(audioToSend,AUDIO_BUFFER_SIZE); //Envio el buffer por I2S al codec
 
-		  case idle:
-			  break;
+			  transferComplete = FALSE;
 
-		  case data_ready_to_dsp:
-
-			  flag = data_ready_to_send;
-
-		  			  break;
-
-		  case data_ready_to_send:
-
-			  if(HAL_I2S_GetState(&hi2s3) != HAL_I2S_STATE_BUSY_TX){
-
-				  flag = idle;
-
-				  if(buffer_to_send == buffer_A){
-
-					  HAL_I2S_Transmit(&hi2s3,audioBufferA,2*AUDIO_BUFFER_SIZE,10);
-
-				  }
-
-				  if(buffer_to_send == buffer_B){
-
-					  HAL_I2S_Transmit(&hi2s3,audioBufferB,2*AUDIO_BUFFER_SIZE,10);
-
-				  }
-			  }
-			  break;
-
-		  default:
-			  break;
 	  }
 
-	//  HAL_I2S_Transmit(&hi2s3,audioBufferA,2*AUDIO_BUFFER_SIZE,10);
+	  if(adc_done){
 
-  /* USER CODE END WHILE */
+		  adc_done = 0;
 
-  /* USER CODE BEGIN 3 */
+		  fill_buffers();
 
+	  }
+
+	  /* USER CODE END WHILE */
+
+	  /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 
 }
+
+
+
+void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef *hi2s)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(hi2s);
+
+  //HAL_GPIO_TogglePin(Sampling_Check_GPIO_Port, Sampling_Check_Pin);
+
+  transferComplete = TRUE;
+
+}
+
+
+void audio_effect(uint16_t *smp){
+
+	*smp = (uint16_t)(*smp - ADC_OFFSET)<<0;
+};
+
+void load_buffer(uint16_t *buff){
+
+	static size_t i = 0;
+
+	sample = audio_read();
+
+#ifdef DSP
+
+	sample = dsp_echo(sample,20000);
+
+	sample = dsp_echo_short(sample,1500);
+
+#endif
+	buff[i] = sample;
+
+	buff[i+1] =  buff[i];
+
+	i = i+2;
+
+	if( (i >= AUDIO_BUFFER_SIZE)){
+
+		buffer_t aux = buffer_to_send;
+		buffer_to_send = buffer_to_fill;
+		buffer_to_fill = aux;
+
+		flag = data_ready_to_send;
+		i=0;
+
+	}
+
+}
+
+void fill_buffers(){
+
+	if((buffer_to_fill == buffer_A)){
+
+		audioToUpdate = audioBufferA;
+		load_buffer(audioToUpdate);
+
+	}
+	if((buffer_to_fill == buffer_B)){
+
+		audioToUpdate = audioBufferB;
+		load_buffer(audioToUpdate);
+	}
+
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(hadc);
+  adc_done = 1;
+
+}
+
+uint16_t* select_buffer_to_transmit(buffer_t bf){
+
+	  uint16_t *ptr = NULL;
+
+	  if(buffer_to_send == buffer_A){
+
+		 ptr = audioBufferA;
+
+	  }else if(buffer_to_send == buffer_B){
+
+		  ptr = audioBufferB;
+
+	  }
+
+	  return ptr;
+
+ }
 
 /**
   * @brief System Clock Configuration
@@ -451,17 +573,11 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-int16_t audio_dsp(uint16_t *sample){
-
-	 return  (*sample) - 2047;
-
-}
-
 void audio_buffer_init(){
 
 	size_t i;
 
-	for(i = 0;i<2*AUDIO_BUFFER_SIZE;i++){
+	for(i = 0;i<AUDIO_BUFFER_SIZE;i++){
 
 		audioBufferA[i] = 0;
 		audioBufferB[i] = 0;
@@ -473,7 +589,7 @@ void audio_buffer_init(){
 
 void audio_send_buffer(uint16_t *buffer,uint16_t buffer_size){
 
-	HAL_I2S_Transmit(&hi2s3,buffer,2*buffer_size,10);
+	HAL_I2S_Transmit_IT(&hi2s3,buffer,buffer_size);
 
 }
 
@@ -487,27 +603,27 @@ uint16_t audio_read(void){
 
 #if (RUN_OPT == USE_LOOKUP_TABLE_INDEX)
 
-	static uint8_t index = 0;
+	static size_t index = 0;
 
 	if(index >= SINE_SAMPLES){
 
 		index = 0;
 	}
 
-	return sine_lookup[++index];
+	return sine_lookup[index++];
 
 #endif
 
 #if (RUN_OPT == USE_LOOKUP_TABLE_COMPLEMENT_2)
 
-	static uint8_t index = 0;
+	static size_t index = 0;
 
 	if(index >= SINE_SAMPLES){
 
 		index = 0;
 	}
 
-	return SINE_COMP[++index];
+	return SINE_COMP[index++];
 
 #endif
 
@@ -518,45 +634,6 @@ uint16_t audio_read(void){
 #endif
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-	static uint16_t i = 0;
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(hadc);
-
-  	  if(buffer_to_fill == buffer_A){
-
-		  audioBufferA[i] = audio_read();
-		  audioBufferA[i+1] =  audioBufferA[i];
-		  i = i+2;
-
-		  if(i >= 2*AUDIO_BUFFER_SIZE){
-
-			i=0;
-
-			buffer_to_send = buffer_A;
-			buffer_to_fill = buffer_B;
-			flag = data_ready_to_dsp;
-		  }
-  	  }
-		  //////////////////////////////////////////////
-
-  	  if(buffer_to_fill == buffer_B){
-
-		  audioBufferB[i] = audio_read();
-		  audioBufferB[i+1] =  audioBufferB[i];
-		  i = i+2;
-
-		  if(i >= 2*AUDIO_BUFFER_SIZE){
-
-			i=0;
-
-			buffer_to_send = buffer_B;
-			buffer_to_fill = buffer_A;
-			flag = data_ready_to_dsp;
-		  }
-  	  }
-}
 
 void CS43L22_write(uint8_t reg, uint8_t Cmd){
 
