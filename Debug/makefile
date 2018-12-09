@@ -28,13 +28,13 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: I2S_IT_SAMPLING.elf
+all: TP_Modularizado.elf
 
 # Tool invocations
-I2S_IT_SAMPLING.elf: $(OBJS) $(USER_OBJS) ../STM32F407VGTx_FLASH.ld
+TP_Modularizado.elf: $(OBJS) $(USER_OBJS) ../STM32F407VGTx_FLASH.ld
 	@echo 'Building target: $@'
 	@echo 'Invoking: MCU GCC Linker'
-	arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -specs=nosys.specs -specs=nano.specs -T"../STM32F407VGTx_FLASH.ld" -Wl,-Map=output.map -Wl,--gc-sections -o "I2S_IT_SAMPLING.elf" @"objects.list" $(USER_OBJS) $(LIBS) -lm
+	arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -specs=nosys.specs -specs=nano.specs -T"../STM32F407VGTx_FLASH.ld" -Wl,-Map=output.map -Wl,--gc-sections -o "TP_Modularizado.elf" @"objects.list" $(USER_OBJS) $(LIBS) -lm
 	@echo 'Finished building target: $@'
 	@echo ' '
 	$(MAKE) --no-print-directory post-build
@@ -46,8 +46,8 @@ clean:
 
 post-build:
 	-@echo 'Generating hex and Printing size information:'
-	arm-none-eabi-objcopy -O ihex "I2S_IT_SAMPLING.elf" "I2S_IT_SAMPLING.hex"
-	arm-none-eabi-size "I2S_IT_SAMPLING.elf"
+	arm-none-eabi-objcopy -O ihex "TP_Modularizado.elf" "TP_Modularizado.hex"
+	arm-none-eabi-size "TP_Modularizado.elf"
 	-@echo ' '
 
 .PHONY: all clean dependents

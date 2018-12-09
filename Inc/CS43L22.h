@@ -1,6 +1,7 @@
 
 /******************************************************************************/
 /***************************  Codec User defines ******************************/
+#include <stdint.h>
 
 #define CS43L22_ADDRESS 0x94
 /******************************************************************************/
@@ -105,15 +106,5 @@
 /* High Layer codec functions */
 
 void CS43L22_init(void);
-/*uint32_t cs43l22_Init(uint16_t DeviceAddr, uint16_t OutputDevice, uint8_t Volume, uint32_t AudioFreq);
-void     cs43l22_DeInit(void);
-uint32_t cs43l22_ReadID(uint16_t DeviceAddr);
-uint32_t cs43l22_Play(uint16_t DeviceAddr, uint16_t* pBuffer, uint16_t Size);
-uint32_t cs43l22_Pause(uint16_t DeviceAddr);
-uint32_t cs43l22_Resume(uint16_t DeviceAddr);
-uint32_t cs43l22_Stop(uint16_t DeviceAddr, uint32_t Cmd);
-uint32_t cs43l22_SetVolume(uint16_t DeviceAddr, uint8_t Volume);
-uint32_t cs43l22_SetFrequency(uint16_t DeviceAddr, uint32_t AudioFreq);
-uint32_t cs43l22_SetMute(uint16_t DeviceAddr, uint32_t Cmd);
-uint32_t cs43l22_SetOutputMode(uint16_t DeviceAddr, uint8_t Output);
-uint32_t cs43l22_Reset(uint16_t DeviceAddr);*/
+void CS43L22_write(uint8_t reg, uint8_t Cmd, uint8_t len);
+void CS43L22_AudioSend(uint16_t *buffer,uint16_t buffer_size);

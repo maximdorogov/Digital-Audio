@@ -1,5 +1,5 @@
-Src/main.o: ../Src/main.c \
- C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/main.h \
+Src/stm32_DiscoveryBoard.o: ../Src/stm32_DiscoveryBoard.c \
+ C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/stm32_DiscoveryBoard.h \
  C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
  C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/stm32f4xx_hal_conf.h \
  C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/main.h \
@@ -32,13 +32,9 @@ Src/main.o: ../Src/main.c \
  C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h \
  C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h \
  C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
- C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
- C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/CS43L22.h \
- C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/data_table.h \
- C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/stm32f4xx_hal_conf.h \
- C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/stm32_DiscoveryBoard.h
+ C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 
-C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/main.h:
+C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/stm32_DiscoveryBoard.h:
 
 C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 
@@ -105,11 +101,3 @@ C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/
 C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h:
 
 C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h:
-
-C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/CS43L22.h:
-
-C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/data_table.h:
-
-C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/stm32f4xx_hal_conf.h:
-
-C:/Users/ASUS/Documents/worksSTM32/TP_Modularizado/Inc/stm32_DiscoveryBoard.h:
