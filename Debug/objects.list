@@ -18,6 +18,7 @@
 "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.o"
 "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o"
 "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o"
+"Src/AudioEffects.o"
 "Src/CS43L22.o"
 "Src/main.o"
 "Src/stm32_DiscoveryBoard.o"

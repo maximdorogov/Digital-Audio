@@ -97,6 +97,10 @@
 
 /* USER CODE BEGIN Private defines */
 
+typedef enum{data_ready_to_send = 0,data_ready_to_dsp, idle}flag_t;
+typedef enum{FALSE,TRUE}bool_t;
+typedef enum{buffer_A = 0,buffer_B,no_fill}buffer_t;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

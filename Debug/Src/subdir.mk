@@ -4,6 +4,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Src/AudioEffects.c \
 ../Src/CS43L22.c \
 ../Src/main.c \
 ../Src/stm32_DiscoveryBoard.c \
@@ -12,6 +13,7 @@ C_SRCS += \
 ../Src/system_stm32f4xx.c 
 
 OBJS += \
+./Src/AudioEffects.o \
 ./Src/CS43L22.o \
 ./Src/main.o \
 ./Src/stm32_DiscoveryBoard.o \
@@ -20,6 +22,7 @@ OBJS += \
 ./Src/system_stm32f4xx.o 
 
 C_DEPS += \
+./Src/AudioEffects.d \
 ./Src/CS43L22.d \
 ./Src/main.d \
 ./Src/stm32_DiscoveryBoard.d \

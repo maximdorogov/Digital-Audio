@@ -4,117 +4,98 @@
 
 
 #include <math.h>
+#include <sin256.h> //256 muestras complemento a 2 de una senoidal
 #include "CS43L22.h"
-#include "data_table.h"
 #include <string.h>
 #include "stm32_DiscoveryBoard.h"
+#include "AudioEffects.h"
 
 #define AUDIO_BUFFER_SIZE 180
 //con 2*90 el plop se escucha cada tanto 90 samples por cada canal intercaladas
+
+//opciones de compilacion
 
 #define USE_ADC  0
 #define USE_LOOKUP_TABLE_COMPLEMENT_2 3
 
 #define ADC_OFFSET 0//2048  //Si uso LOOKUP TABLE offset = 0
 
+// defino si quiero usar efectos en el camino de la senial
+
 #define DSP
-#define RUN_OPT USE_ADC//USE_LOOKUP_TABLE_COMPLEMENT_2 //aca se define de donde levanto el audio para transferir al Cirrus
 
-typedef enum{data_ready_to_send = 0,data_ready_to_dsp, idle}flag_t;
+// defino la cantidad maxima de muestras que voy a reservar para el buffer del delay
 
-typedef enum{FALSE,TRUE}bool_t;
+#ifdef DSP
 
-typedef enum{buffer_A = 0,buffer_B,no_fill}buffer_t;
+	#define MAX_DELAY 30000
 
+#endif
 
+//aca se define de donde levanto el audio para transferir al DAC externo
+
+#define RUN_OPT USE_ADC
+
+/* %%%%%%%%%%%%%%%%% Declaro buffers para lectura y transmision de audio %%%%%%%%%%%%%%%%%%%*/
 
 uint16_t audioBufferA[AUDIO_BUFFER_SIZE];
 uint16_t audioBufferB[AUDIO_BUFFER_SIZE];
 
+uint16_t delayBuffer[MAX_DELAY];
+
+/* %%%%%%%%%%%%%%%%% Declaro punteros para lectura y transmision de audio %%%%%%%%%%%%%%%%%%%*/
+
 uint16_t *audioToSend = NULL;
 uint16_t *audioToUpdate = NULL;
 
+/* %%%%%%%%%%%%%%%%% Declaro variables globales %%%%%%%%%%%%%%%%%%%*/
+
+
 flag_t flag = idle;
+
 uint8_t adc_done = 0;
+
 buffer_t  buffer_to_send = buffer_B;
-buffer_t buffer_to_fill = buffer_A;//no_fill;
+buffer_t buffer_to_fill = buffer_A;
+
 uint16_t sample;
-
-////////////////////////////echo dsp effect////////////////////////////////////////
-
-uint16_t dsp_echo_short(uint16_t data,size_t depth){
-
-	static uint16_t sDelayBuffer[25000];
-	static uint16_t counter = 0;
-
-	sDelayBuffer[counter] = (data + sDelayBuffer[counter])>>1;
-
-	counter ++;
-
-	if(counter >= depth){ counter = 0; }
-
-	return sDelayBuffer[counter] + data;
-
-}
-
-
-uint16_t dsp_echo(uint16_t data,size_t depth){
-
-	static uint16_t sDelayBuffer[30000];
-	static uint16_t counter = 0;
-
-	sDelayBuffer[counter] = (data + sDelayBuffer[counter])>>1;
-
-	counter ++;
-
-	if(counter >= depth){ counter = 0; }
-
-	return sDelayBuffer[counter] + data;
-}
-
-void dsp_overdrive(uint16_t *data,uint16_t threshold){
-
-	if(*data >= threshold){
-
-		*data =  threshold;
-
-	}
-
-}
-
-////////////////////////////////////////////////////////////////////
-
 volatile bool_t transferComplete = TRUE;
 
-/* USER CODE END PV */
+DSP_Delay_t long_delay;
 
 
-
-/* USER CODE BEGIN PFP */
-/* Private function prototypes -----------------------------------------------*/
+/*%%%%%%%%%%%%%%%%%%%%%% Prototipos de funciones %%%%%%%%%%%%%%%%%%%%%%%%*/
 
 uint16_t audio_read(void);
-
-void audio_effect(uint16_t*);
 uint16_t* select_buffer_to_transmit(buffer_t);
 
-void audio_buffer_init(void);   //inicializa el audio buffer con ceros.
+void audio_buffer_init(void);   	//inicializo el audio buffer con ceros.
 void fill_buffers();
 void load_buffer(uint16_t *);
 
+
+
 int main(void)
 {
+	uint16_t dTime  = 25000; 	    //defino el tiempo de delay
+	uint8_t dgain = 1;       	    //las ganancias representan una potencia de 2. con lo cual 1 equivale a 2^1, 2 es 2^2, etc..
 
-	BoardInit(); //configuro todos los perifericos del micro
-
-	CS43L22_init();   //configuro el DAC CS43L22
-
-	HAL_TIM_Base_Start(&htim2); //activo el timer
-	HAL_ADC_Start_IT(&hadc1); // y el ADC
-
-	audio_buffer_init();         //inicializo los buffers con ceros
-	audioToSend = audioBufferB;   //asigno punteros a c/u de los buffers
+	audioToSend = audioBufferB;     //asigno punteros a c/u de los buffers
 	audioToUpdate = audioBufferA;
+
+	BoardInit(); 					//configuro todos los perifericos del micro
+
+	CS43L22_init();   				//configuro el DAC CS43L22
+
+	audio_buffer_init();         	//inicializo los buffers con ceros
+
+	DSP_DelayInit(&long_delay, dTime, delayBuffer, MAX_DELAY, dgain);
+
+
+	HAL_TIM_Base_Start(&htim2); 	//activo el timer
+	HAL_ADC_Start_IT(&hadc1); 		// y el ADC
+
+
 
 	while (1)
 	{
@@ -156,11 +137,6 @@ void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef *hi2s)
 }
 
 
-void audio_effect(uint16_t *smp){
-
-	*smp = (uint16_t)(*smp - ADC_OFFSET)<<0;
-};
-
 void load_buffer(uint16_t *buff){
 
 	static size_t i = 0;
@@ -169,9 +145,7 @@ void load_buffer(uint16_t *buff){
 
 #ifdef DSP
 
-	sample = dsp_echo(sample,25000);
-
-	sample = dsp_echo_short(sample,1500);
+	sample =  DSP_DelaySample(&long_delay,sample);
 
 #endif
 	buff[i] = sample;
